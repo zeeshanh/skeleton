@@ -1,12 +1,8 @@
-<<<<<<< HEAD
-import controllers.HelloWorldController;
 import controllers.NetIDController;
 import controllers.ReceiptController;
 import controllers.TagController;
-=======
 import controllers.ReceiptController;
 import controllers.StaticHtmlController;
->>>>>>> 9a8925afa9756cad50a21d1cbf42f8d8deb66d4f
 import dao.ReceiptDao;
 import dao.TagDao;
 import io.dropwizard.Application;
