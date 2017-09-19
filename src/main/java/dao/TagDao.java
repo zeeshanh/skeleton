@@ -3,13 +3,12 @@ package dao;
 import generated.tables.records.ReceiptsRecord;
 import generated.tables.records.TagsRecord;
 import org.apache.commons.lang3.ObjectUtils;
-import org.jooq.Configuration;
-import org.jooq.DSLContext;
-import org.jooq.Select;
+import org.jooq.*;
 import org.jooq.impl.DSL;
 
 import javax.lang.model.type.NullType;
 import javax.print.DocFlavor;
+import javax.validation.constraints.Null;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -37,12 +36,11 @@ public class TagDao {
     }
 
     public boolean existsTag(String tag, int receipt_id){
-        List<TagsRecord> tr = dsl
-                .selectFrom(TAGS)
-                .where(TAGS.TAG.eq(tag).and(TAGS.ID.eq(receipt_id)))
-                .fetch();
+        Boolean ans = dsl.selectFrom(TAGS)
+                .where(TAGS.TAG.eq(tag).and(TAGS.RECEIPT.eq(receipt_id)))
+                .fetch().isNotEmpty();
 
-        return tr.size() > 0;
+        return ans;
 
     }
 
@@ -58,7 +56,7 @@ public class TagDao {
     public List<ReceiptsRecord> getReceipts(String tag) {
 
         List<ReceiptsRecord> records= dsl
-                .selectFrom(RECEIPTS
+                .select().from(RECEIPTS
                         .join(TAGS)
                         .on(RECEIPTS.ID.eq(TAGS.RECEIPT)))
                         .where(TAGS.TAG.eq(tag))
@@ -67,6 +65,10 @@ public class TagDao {
 
         //System.out.println(records.toString());
         return records;
+    }
+
+    public List<TagsRecord> getAll() {
+        return dsl.selectFrom(TAGS).fetch();
     }
 
 }
