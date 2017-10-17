@@ -4,17 +4,11 @@
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
     <script data-require="jquery@*" data-semver="3.1.1" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
     <style>
         #container {border: 1px solid brown;}
-        H1 {float: left;}
 
-        #add-receipt{
-            background-color:#55A;
-            border: 1px solid #229;
-            width: 100px;
-            float: right;
-            font-size: 2em;
-            color: white;
+        body {
             text-align: center;
         }
 
@@ -27,22 +21,6 @@
         .receipt {
             background-color: #eee;
             margin-bottom: 5px;
-        }
-
-        table {
-            font-family: arial, sans-serif;
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        td, th {
-            border: 1px solid #dddddd;
-            text-align: left;
-            padding: 8px;
-        }
-
-        tr:nth-child(even) {
-            background-color: #dddddd;
         }
 
         #receipt-form {
@@ -109,6 +87,20 @@
             box-sizing: border-box;
         }
 
+        #camera-view {
+            display: none
+        }
+
+        video {
+            width: 550px;
+            height: 450px;
+            border: 1px solid black;
+        }
+
+        #vidwrap {
+            margin: 20px 0;
+        }
+
 
     </style>
     <script>
@@ -129,7 +121,9 @@
                         <div class="date">${receipt.created}</div>
                         \<div class = "merchant">${receipt.merchantName}</div>
                         \<div class = "amount">${receipt.value}</div>
-                        \<button class = "add-tag btn waves-effect waves-light" onclick = "showTagInput(this)">Add +</button></div>`)
+                        \<button class = "add-tag btn waves-effect waves-light" onclick = "showTagInput(this)">Add +</button>
+                        \<div class = "tags"></div></div>`)
+
                         .appendTo($("#receiptList"));
                 }
                 addTags();
@@ -147,8 +141,8 @@
                     var tag = tags[i];
                     var rid = tag.receipt;
                     //console.log(tag + " " + rid);
-                    $(`<div class = ".tags tagValue" onClick = "removeTag(this)">${tag.tag}</div>`)
-                        .appendTo($(".receipt")[parseInt(rid)-1]);
+                    $(`<div class = "tagValue" onClick = "removeTag(this)">${tag.tag}</div>`)
+                        .appendTo($(".receipt > .tags")[parseInt(rid)-1]);
                 }
             })
                 .fail(function(){
@@ -235,16 +229,104 @@
             });
         }
 
+        let imageCapture;
+        let track;
+
+        var stream;
+        function attachMediaStream(mediaStream) {
+            $('video')[0].srcObject = mediaStream;
+            stream = mediaStream;
+            // Saving the track allows us to capture a photo
+            track = mediaStream.getVideoTracks()[0];
+            imageCapture = new ImageCapture(track);
+        }
+
+        function startVideo() {
+            $("#camera-view").show();
+            navigator.mediaDevices.getUserMedia({video: {facingMode: {exact: "environment"}}})
+                .then(attachMediaStream)
+                .catch(error => {
+                    navigator.mediaDevices.getUserMedia({video: true})
+                        .then(attachMediaStream)
+                        .catch(error => {
+                            console.log('you are fooked');
+                        })
+                })
+        }
+
+        function takeSnapshot() {
+            // create a CANVAS element that is same size as the image
+            imageCapture.grabFrame()
+            .then(img => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                const base64EncodedImageData = canvas.toDataURL('image/png').split(',')[1];
+
+                stream.getTracks()[0].stop();
+                $("#camera-view").hide();
+
+                $.ajax({
+                    url: "/images",
+                    type: "POST",
+                    data: base64EncodedImageData,
+                    contentType: "text/plain",
+                    success: function(response) {
+                        console.log(response);
+
+                        $("#add-receipt").click();
+                        $("#merchant").val(response.merchantName);
+                        $("#amount").val(response.amount);
+                    },
+                    fail: function(){
+
+                    }
+               })
+                .then(response => {
+                    //$('video').after(`<div>got response: <pre>${JSON.stringify(response)}</pre></div>`);
+                })
+                .always(() => console.log('request complete'));
+
+                // For debugging, you can uncomment this to see the frame that was captured
+                // $('BODY').append(canvas);
+            });
+
+        }
+
+        function cancelSnapshot(){
+            stream.getTracks()[0].stop();
+            $("#camera-view").hide();
+        }
+
         addReceipts();
 
+        $(function () {
+            $('#start-camera').on('click', startVideo);
+            $('video').on('play', () => $('#take-pic').prop('disabled', false));
+            $('#take-pic').on('click', takeSnapshot);
+
+        });
 
     </script>
 </head>
 
 <body>
 <DIV id="container">
-    <h1>My receipts</h1>
-    <button id="add-receipt" onclick="showForm()">+</button>
+
+    <h1 class = "brand-logo">My Receipts</h1>
+    <button class="btn-large waves-effect waves-light red material-icons" id="add-receipt" onclick="showForm()">+</button>
+    <button class="btn-large waves-effect waves-light red material-icons" id="start-camera">Start Video</button>
+
+    <div id = "camera-view">
+        <div id="vidwrap">
+            <video autoplay></video>
+        </div>
+        <button class="waves-effect waves-light btn-large" id="take-pic" disabled="true">Take a Snapshot!</button>
+        <button class="waves-effect waves-light btn-large" id="take-pic-cancel" onclick = "cancelSnapshot()">Cancel</button>
+        <br>
+    </div>
     <div id = "receipt-form">
         <input id = "merchant" type = "text" placeholder = "merchant">
         <input id = "amount" type = "text" placeholder = "amount">
@@ -253,7 +335,6 @@
         <button class="btn waves-effect waves-light" id = "cancel-receipt" onclick="cancelForm()">Cancel</button>
 
     </div>
-
         <div class="headings">
                 <div class = "heading">Time</div>
                 <div class = "heading">Merchant</div>
@@ -262,8 +343,10 @@
         </div>
         <div id="receiptList">
     </div>
-
 </DIV>
+
 </body>
 
 </html>
+
+
